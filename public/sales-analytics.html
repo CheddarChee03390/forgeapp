@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales & Tax Analytics</title>
+    <link rel="stylesheet" href="/styles.css">
+    <style>
+        .analytics-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .metric-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .metric-card.revenue {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .metric-card.profit {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .metric-card.tax {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        .metric-card.margin {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        }
+
+        .metric-value {
+            font-size: 28px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .metric-label {
+            font-size: 12px;
+            opacity: 0.8;
+            text-transform: uppercase;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .filters {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .filters input, .filters select {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .filters button {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .filters button:hover {
+            background: #5568d3;
+        }
+
+        .filters .nav-button {
+            padding: 10px 15px;
+            font-size: 14px;
+            background: #6c757d;
+        }
+
+        .filters .nav-button:hover {
+            background: #5a6268;
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+            margin: 20px 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        th {
+            background: #f5f5f5;
+            padding: 15px;
+            text-align: left;
+            font-weight: bold;
+            border-bottom: 2px solid #ddd;
+        }
+
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        tr:hover {
+            background: #fafafa;
+        }
+
+        .tab-container {
+            margin: 20px 0;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 0;
+            border-bottom: 2px solid #ddd;
+        }
+
+        .tab-button {
+            padding: 15px 20px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .tab-button.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 20px 0;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .status-paid {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+
+        .stat-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .stat-box {
+            background: white;
+            padding: 15px;
+            border-left: 4px solid #667eea;
+            border-radius: 5px;
+        }
+
+        .stat-box.positive {
+            border-left-color: #28a745;
+        }
+
+        .stat-box.negative {
+            border-left-color: #dc3545;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .date-range-picker {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+            display: grid;
+            grid-template-columns: auto 1fr auto auto;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .date-range-display {
+            padding: 10px 15px;
+            background: #f5f7fa;
+            border-radius: 5px;
+            font-weight: 500;
+            color: #333;
+            cursor: pointer;
+            border: 1px solid #ddd;
+            min-width: 300px;
+        }
+
+        .date-range-display:hover {
+            background: #eff2f5;
+            border-color: #bbb;
+        }
+
+        .date-range-preset {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .preset-btn {
+            padding: 8px 12px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            color: #666;
+            transition: all 0.2s;
+        }
+
+        .preset-btn:hover {
+            background: #f5f7fa;
+            border-color: #667eea;
+            color: #667eea;
+        }
+
+        .preset-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .date-picker-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .date-picker-modal.active {
+            display: flex;
+        }
+
+        .date-picker-content {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .date-picker-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .date-picker-field {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .date-picker-field label {
+            font-weight: 600;
+            color: #333;
+            font-size: 13px;
+        }
+
+        .date-picker-field input {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .date-picker-field input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .date-picker-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+        }
+
+        .date-picker-actions button {
+            padding: 10px 20px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .date-picker-actions .cancel-btn {
+            background: white;
+            color: #666;
+        }
+
+        .date-picker-actions .cancel-btn:hover {
+            background: #f5f7fa;
+        }
+
+        .date-picker-actions .apply-btn {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .date-picker-actions .apply-btn:hover {
+            background: #5568d3;
+        }
+
+        .tax-rate-control {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .tax-rate-control input {
+            width: 80px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .tax-rate-control button {
+            padding: 8px 16px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .tax-rate-control button:hover {
+            background: #5568d3;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <h1 class="nav-title">💰 Sales & Tax Analytics</h1>
+            <div class="nav-links">
+                <a href="/" class="nav-link">Dashboard</a>
+                <a href="/materials.html" class="nav-link">Materials</a>
+                <a href="/products.html" class="nav-link">Master Stock</a>
+                <a href="/etsy.html" class="nav-link">Etsy Inventory</a>
+                <a href="/pricing.html" class="nav-link">Pricing</a>
+                <a href="/import.html" class="nav-link">Import</a>
+                <a href="/sales-analytics.html" class="nav-link active">💰 Sales & Tax</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <section class="welcome-section">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; gap: 20px;">
+                <div>
+                    <h2 style="margin: 0;">Sales & Tax Analytics</h2>
+                    <p class="subtitle" style="margin: 5px 0 0 0;">Track sales, costs, profits, and tax obligations</p>
+                </div>
+                <div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
+                        <div style="display: flex; flex-direction: column; gap: 5px;">
+                            <label for="syncFromDate" style="font-size: 12px; font-weight: 600; color: #333;">From Date</label>
+                            <input type="date" id="syncFromDate" value="2025-04-01" style="padding: 8px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px;">
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 5px;">
+                            <label for="syncToDate" style="font-size: 12px; font-weight: 600; color: #333;">To Date</label>
+                            <input type="date" id="syncToDate" style="padding: 8px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px;">
+                        </div>
+                        <button onclick="syncEtsyOrders()" class="btn btn-primary" id="syncBtn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 10px 20px; font-size: 14px; white-space: nowrap;">
+                            🔄 Sync Orders
+                        </button>
+                        <button onclick="clearSalesData()" class="btn" id="clearBtn" style="background: #dc3545; color: white; padding: 10px 20px; font-size: 14px; white-space: nowrap;">
+                            🗑️ Clear All
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="syncStatus" style="display: none;"></div>
+
+            <!-- Filters -->
+            <div class="date-range-picker">
+                <div style="font-weight: 600; color: #333;">Date Range:</div>
+                <div class="date-range-display" onclick="openDatePicker()">
+                    <span id="dateRangeDisplay">Apr 1, 2025 to Jan 19, 2026</span>
+                </div>
+                
+                <div class="date-range-preset">
+                    <button class="preset-btn" onclick="applyPreset('thisMonth')">This Month</button>
+                    <button class="preset-btn" onclick="applyPreset('last30')">Last 30 Days</button>
+                    <button class="preset-btn" onclick="applyPreset('thisYear')">This Year</button>
+                    <button class="preset-btn active" onclick="applyPreset('allTime')">All Data</button>
+                </div>
+
+                <div class="tax-rate-control">
+                    <label for="taxRateInput" style="font-size: 12px; font-weight: 500;">Tax:</label>
+                    <input type="number" id="taxRateInput" value="25" min="0" max="100">
+                    <span style="font-size: 12px; color: #666;">%</span>
+                </div>
+            </div>
+
+            <!-- Date Picker Modal -->
+            <div class="date-picker-modal" id="datePickerModal">
+                <div class="date-picker-content">
+                    <h3 style="margin: 0 0 20px 0; color: #333;">Select Date Range</h3>
+                    
+                    <div class="date-picker-row">
+                        <div class="date-picker-field">
+                            <label>From Date</label>
+                            <input type="date" id="fromDateInput" value="2025-04-01">
+                        </div>
+                        <div class="date-picker-field">
+                            <label>To Date</label>
+                            <input type="date" id="toDateInput" value="2026-01-19">
+                        </div>
+                    </div>
+
+                    <div class="date-picker-actions">
+                        <button class="cancel-btn" onclick="closeDatePicker()">Cancel</button>
+                        <button class="apply-btn" onclick="applyDateRange()">Apply</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Key Metrics -->
+            <div class="analytics-container">
+                <div class="metric-card revenue">
+                    <div class="metric-label">Total Revenue</div>
+                    <div class="metric-value" id="totalRevenue">£0.00</div>
+                </div>
+                <div class="metric-card profit">
+                    <div class="metric-label">Gross Profit</div>
+                    <div class="metric-value" id="grossProfit">£0.00</div>
+                </div>
+                <div class="metric-card tax">
+                    <div class="metric-label">Estimated Tax</div>
+                    <div class="metric-value" id="estimatedTax">£0.00</div>
+                </div>
+                <div class="metric-card margin">
+                    <div class="metric-label">Profit Margin</div>
+                    <div class="metric-value" id="profitMargin">0%</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tabs -->
+        <div class="tab-container">
+            <div class="tabs">
+                <button class="tab-button active" onclick="switchTab('sales')">📊 Sales</button>
+                <button class="tab-button" onclick="switchTab('profit')">📈 Profitability</button>
+                <button class="tab-button" onclick="switchTab('tax')">💼 Tax Report</button>
+                <button class="tab-button" onclick="switchTab('fees')">💳 Fees</button>
+            </div>
+
+            <!-- Sales Tab -->
+            <div id="sales" class="tab-content active">
+                <h3>Monthly Sales</h3>
+                <div class="stat-row">
+                    <div class="stat-box">
+                        <div class="stat-label">Total Units Sold</div>
+                        <div class="stat-value" id="unitsSold">0</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Average Order Value</div>
+                        <div class="stat-value" id="avgOrderValue">£0.00</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Orders</div>
+                        <div class="stat-value" id="orderCount">0</div>
+                    </div>
+                </div>
+                
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Order ID</th>
+                                <th>Product</th>
+                                <th>Qty</th>
+                                <th>Sale Price</th>
+                                <th>Cost</th>
+                                <th>Profit</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="salesTable">
+                            <tr><td colspan="7" class="loading">Loading sales...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Profitability Tab -->
+            <div id="profit" class="tab-content">
+                <h3>Product Profitability</h3>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Product SKU</th>
+                                <th>Product Name</th>
+                                <th>Units</th>
+                                <th>Revenue</th>
+                                <th>Cost</th>
+                                <th>Profit</th>
+                                <th>Margin %</th>
+                            </tr>
+                        </thead>
+                        <tbody id="profitTable">
+                            <tr><td colspan="7" class="loading">Loading profitability...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3>Top Selling Products</h3>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Rank</th>
+                                <th>Product</th>
+                                <th>Units Sold</th>
+                                <th>Revenue</th>
+                            </tr>
+                        </thead>
+                        <tbody id="topProductsTable">
+                            <tr><td colspan="4" class="loading">Loading top products...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tax Tab -->
+            <div id="tax" class="tab-content">
+                <h3>Tax Report</h3>
+                <div class="stat-row">
+                    <div class="stat-box">
+                        <div class="stat-label">Gross Revenue</div>
+                        <div class="stat-value" id="taxRevenue">£0.00</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Total Costs</div>
+                        <div class="stat-value" id="taxCosts">£0.00</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Etsy Fees</div>
+                        <div class="stat-value" id="etsyFees">£0.00</div>
+                    </div>
+                    <div class="stat-box positive">
+                        <div class="stat-label">Net Profit (after tax)</div>
+                        <div class="stat-value" id="netProfit">£0.00</div>
+                    </div>
+                </div>
+
+                <h3>Tax Payment Schedule</h3>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Quarter</th>
+                                <th>Due Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="taxScheduleTable">
+                            <tr><td colspan="2" class="loading">Loading tax schedule...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Fees Tab -->
+            <div id="fees" class="tab-content">
+                <h3>Etsy Fees Breakdown</h3>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Fee Type</th>
+                                <th>Amount</th>
+                                <th>% of Revenue</th>
+                            </tr>
+                        </thead>
+                        <tbody id="feesTable">
+                            <tr><td colspan="3" class="loading">Loading fees...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3>Annual Fee Summary</h3>
+                <div class="stat-row">
+                    <div class="stat-box">
+                        <div class="stat-label">Total Annual Fees</div>
+                        <div class="stat-value" id="annualFees">$0.00</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Avg Fee per Order</div>
+                        <div class="stat-value" id="avgFeePerOrder">$0.00</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <p>Sales & Tax Analytics • Real-time profit tracking • Cost history locked at sale time</p>
+    </footer>
+
+    <script src="/sales-analytics.js"></script>
+    <script>
+        // Set today's date as default for "To Date"
+        document.getElementById('syncToDate').valueAsDate = new Date();
+
+        async function syncEtsyOrders() {
+            const btn = document.getElementById('syncBtn');
+            const statusDiv = document.getElementById('syncStatus');
+            const fromDate = document.getElementById('syncFromDate').value;
+            const toDate = document.getElementById('syncToDate').value;
+            
+            // Validate dates
+            if (!fromDate || !toDate) {
+                statusDiv.style.display = 'block';
+                statusDiv.className = 'error';
+                statusDiv.innerHTML = '❌ Please select both From and To dates';
+                setTimeout(() => { statusDiv.style.display = 'none'; }, 3000);
+                return;
+            }
+
+            if (new Date(fromDate) > new Date(toDate)) {
+                statusDiv.style.display = 'block';
+                statusDiv.className = 'error';
+                statusDiv.innerHTML = '❌ From date must be before To date';
+                setTimeout(() => { statusDiv.style.display = 'none'; }, 3000);
+                return;
+            }
+            
+            // Disable button and show loading
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Syncing...';
+            statusDiv.style.display = 'block';
+            statusDiv.className = 'loading';
+            statusDiv.innerHTML = `Fetching orders from ${fromDate} to ${toDate}...`;
+            
+            try {
+                // Convert dates to calculate days
+                const start = new Date(fromDate);
+                const end = new Date(toDate);
+                const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+                
+                const response = await fetch(`/api/sales/sync?days=${days}`, {
+                    method: 'GET'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    statusDiv.className = 'success';
+                    statusDiv.innerHTML = `✅ ${result.message} (${result.synced} orders synced from ${result.dateRange?.start || fromDate} to ${result.dateRange?.end || toDate})`;
+                    
+                    // Refresh the data after a delay
+                    setTimeout(() => {
+                        location.reload();
+                    }, 2000);
+                } else {
+                    statusDiv.className = 'error';
+                    statusDiv.innerHTML = `❌ Sync failed: ${result.error}`;
+                }
+            } catch (error) {
+                statusDiv.className = 'error';
+                statusDiv.innerHTML = `❌ Error: ${error.message}`;
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '🔄 Sync Orders';
+                
+                // Hide status after 8 seconds (longer to read the success message)
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 8000);
+            }
+        }
+
+        async function clearSalesData() {
+            if (!confirm('⚠️ Are you sure you want to clear ALL sales data? This cannot be undone!')) {
+                return;
+            }
+
+            if (!confirm('🚨 FINAL WARNING: This will permanently delete all sales records. Continue?')) {
+                return;
+            }
+
+            const btn = document.getElementById('clearBtn');
+            const statusDiv = document.getElementById('syncStatus');
+            
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Clearing...';
+            statusDiv.style.display = 'block';
+            statusDiv.className = 'loading';
+            statusDiv.innerHTML = 'Clearing all sales data...';
+            
+            try {
+                const response = await fetch('/api/sales/clear', {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    statusDiv.className = 'success';
+                    statusDiv.innerHTML = '✅ All sales data cleared successfully';
+                    
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    statusDiv.className = 'error';
+                    statusDiv.innerHTML = '❌ Failed to clear data';
+                }
+            } catch (error) {
+                statusDiv.className = 'error';
+                statusDiv.innerHTML = `❌ Error: ${error.message}`;
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '🗑️ Clear All';
+            }
+        }
+    </script>
+</body>
+</html>

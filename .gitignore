@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment variables (SENSITIVE)
+.env
+.env.local
+.env.*.local
+
+# Database files (SENSITIVE - contains customer data)
+data/*.db
+data/backups/*.db
+
+# JSON data files (may contain sensitive data)
+data/*.json
+raw-etsy-response.json
+*-response.json
+etsy-tokens.json
+
+# Backup files
+*.zip
+*.tar.gz
+*.rar
+backup/
+backups/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo

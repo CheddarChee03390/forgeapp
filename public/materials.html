@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Materials Manager - Master Stock Management</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <h1 class="nav-title">📦 Master Stock Management</h1>
+            <div class="nav-links">
+                <a href="/" class="nav-link">Dashboard</a>
+                <a href="/materials.html" class="nav-link active">Materials</a>
+                <a href="/products.html" class="nav-link">Master Stock</a>
+                <a href="/etsy.html" class="nav-link">Etsy Inventory</a>
+                <a href="/pricing.html" class="nav-link">Pricing</a>
+                <a href="/import.html" class="nav-link">Import</a>
+                <a href="/sales-analytics.html" class="nav-link">💰 Sales & Tax</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="page-header">
+            <h2>💎 Materials Manager</h2>
+            <button id="btnAddMaterial" class="btn btn-primary">+ Add Material</button>
+        </div>
+
+        <div class="info-box">
+            <strong>Note:</strong> Material costs are used to calculate Cost of Item (Weight × Cost per Gram).
+            MaterialID is immutable once created.
+        </div>
+
+        <div id="materialsList" class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Material ID</th>
+                        <th>Name</th>
+                        <th>Cost per Gram (£)</th>
+                        <th>Sell Price per Gram (£)</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="materialsTableBody">
+                    <tr>
+                        <td colspan="5" class="loading">Loading materials...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <!-- Add/Edit Material Modal -->
+    <div id="materialModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Add Material</h3>
+                <span class="close">&times;</span>
+            </div>
+            <form id="materialForm">
+                <div class="form-group">
+                    <label for="materialId">Material ID *</label>
+                    <input type="text" id="materialId" required placeholder="e.g., Silver">
+                    <small>Immutable once created</small>
+                </div>
+                <div class="form-group">
+                    <label for="materialName">Name *</label>
+                    <input type="text" id="materialName" required placeholder="e.g., Silver">
+                </div>
+                <div class="form-group">
+                    <label for="costPerGram">Cost per Gram (£) *</label>
+                    <input type="number" id="costPerGram" step="0.01" min="0" required placeholder="0.00">
+                </div>
+                <div class="form-group">
+                    <label for="sellPricePerGram">Sell Price per Gram (£)</label>
+                    <input type="number" id="sellPricePerGram" step="0.01" min="0" placeholder="0.00">
+                    <small>Used for pricing calculations</small>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="btnCancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+            <div id="formError" class="error-message"></div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <p>Materials define the cost per gram used in product calculations</p>
+    </footer>
+
+    <script src="/materials.js"></script>
+</body>
+</html>

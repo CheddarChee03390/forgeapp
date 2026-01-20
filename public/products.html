@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master Stock - Master Stock Management</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <h1 class="nav-title">📦 Master Stock Management</h1>
+            <div class="nav-links">
+                <a href="/" class="nav-link">Dashboard</a>
+                <a href="/materials.html" class="nav-link">Materials</a>
+                <a href="/products.html" class="nav-link active">Master Stock</a>
+                <a href="/etsy.html" class="nav-link">Etsy Inventory</a>
+                <a href="/pricing.html" class="nav-link">Pricing</a>
+                <a href="/import.html" class="nav-link">Import</a>
+                <a href="/sales-analytics.html" class="nav-link">💰 Sales & Tax</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="page-header">
+            <h2>📋 Master Stock</h2>
+            <button id="btnAddProduct" class="btn btn-primary">+ Add Product</button>
+        </div>
+
+        <div class="info-box">
+            <strong>Note:</strong> SKU is immutable. Material cost is calculated automatically from weight and material cost per gram.
+        </div>
+
+        <div class="filter-section">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="🔍 Search by SKU or Type..." class="search-input">
+            </div>
+            <div class="filter-controls">
+                <select id="typeFilter" class="filter-select" aria-label="Filter by product type">
+                    <option value="">All Types</option>
+                </select>
+                <select id="materialFilter" class="filter-select" aria-label="Filter by material">
+                    <option value="">All Materials</option>
+                </select>
+                <button id="btnClearFilters" class="btn btn-secondary btn-small">Clear Filters</button>
+            </div>
+            <div class="filter-stats">
+                <span id="resultCount">Showing 0 products</span>
+            </div>
+        </div>
+
+        <div id="productsList" class="table-container">
+            <div class="table-scroll">
+                <table class="data-table products-table">
+                    <thead>
+                        <tr>
+                            <th>SKU</th>
+                            <th>Type</th>
+                            <th>Length</th>
+                            <th>Weight (g)</th>
+                            <th>Material</th>
+                            <th>Cost/Gram</th>
+                            <th>Material Cost</th>
+                            <th>Postage Cost</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="productsTableBody">
+                        <tr>
+                            <td colspan="9" class="loading">Loading products...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Add/Edit Product Modal -->
+    <div id="productModal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 id="modalTitle">Add Product</h3>
+                <span class="close">&times;</span>
+            </div>
+            <form id="productForm">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="sku">SKU *</label>
+                        <input type="text" id="sku" required placeholder="e.g., BR-TU13_8">
+                        <small>Immutable once created</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="type">Type</label>
+                        <input type="text" id="type" placeholder="e.g., Bracelet">
+                    </div>
+                    <div class="form-group">
+                        <label for="length">Length</label>
+                        <input type="number" id="length" step="0.1" min="0" placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="weight">Weight (grams) *</label>
+                        <input type="number" id="weight" step="0.1" min="0" required placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="material">Material *</label>
+                        <select id="material" required>
+                            <option value="">Select material...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="postageCost">Postage Cost (£)</label>
+                        <input type="number" id="postageCost" step="0.01" min="0" placeholder="0.00">
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="btnCancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+            <div id="formError" class="error-message"></div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <p>Master Stock with automatic cost calculations and profitability tracking</p>
+    </footer>
+
+    <script src="/products.js"></script>
+</body>
+</html>

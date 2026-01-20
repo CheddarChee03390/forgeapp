@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pricing Manager - Master Stock Management</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <h1 class="nav-title">📦 Master Stock Management</h1>
+            <div class="nav-links">
+                <a href="/" class="nav-link">Dashboard</a>
+                <a href="/materials.html" class="nav-link">Materials</a>
+                <a href="/products.html" class="nav-link">Master Stock</a>
+                <a href="/etsy.html" class="nav-link">Etsy Inventory</a>
+                <a href="/pricing.html" class="nav-link active">Pricing</a>
+                <a href="/import.html" class="nav-link">Import</a>
+                <a href="/sales-analytics.html" class="nav-link">💰 Sales & Tax</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="page-header">
+            <h2>💰 Pricing Manager</h2>
+            <button id="btnCalculate" class="btn btn-primary">🔄 Calculate Prices</button>
+        </div>
+
+        <!-- Stats Dashboard -->
+        <div class="stats-section" id="statsSection">
+            <div class="stat-card">
+                <div class="stat-value" id="statTotal">-</div>
+                <div class="stat-label">Total Variations</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statListings">-</div>
+                <div class="stat-label">Active Listings</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statPending">-</div>
+                <div class="stat-label">Pending Review</div>
+            </div>
+            <div class="stat-card stat-success">
+                <div class="stat-value" id="statApproved">-</div>
+                <div class="stat-label">Approved</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statAvgMargin">-</div>
+                <div class="stat-label">Avg Margin %</div>
+            </div>
+            <div class="stat-card stat-error">
+                <div class="stat-value" id="statNegativeProfit">-</div>
+                <div class="stat-label">Negative Profit</div>
+            </div>
+        </div>
+
+        <!-- Column Visibility Controls -->
+        <div class="filter-panel">
+            <strong>Show Columns:</strong>
+            <label><input type="checkbox" class="col-toggle" data-col="3" checked> Target Margin %</label>
+            <label><input type="checkbox" class="col-toggle" data-col="4" checked> Current Price</label>
+            <label><input type="checkbox" class="col-toggle" data-col="5" checked> Calculated Price</label>
+            <label><input type="checkbox" class="col-toggle" data-col="6" checked> Change</label>
+            <label><input type="checkbox" class="col-toggle" data-col="7" checked> Material Cost</label>
+            <label><input type="checkbox" class="col-toggle" data-col="8" checked> Transaction</label>
+            <label><input type="checkbox" class="col-toggle" data-col="9" checked> Payment</label>
+            <label><input type="checkbox" class="col-toggle" data-col="10" checked> Ad Fee</label>
+            <label><input type="checkbox" class="col-toggle" data-col="11" checked> Postage</label>
+            <label><input type="checkbox" class="col-toggle" data-col="12" checked> Total Fees</label>
+        </div>
+
+        <!-- Filter Controls -->
+        <div class="filter-panel">
+            <select id="filterStatus" class="filter-select" aria-label="Filter by status">
+                <option value="">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+                <option value="pushed">Pushed</option>
+            </select>
+            
+            <input type="text" id="searchInput" placeholder="Search by SKU or title..." class="filter-input">
+            
+            <button id="btnReset" class="btn btn-secondary">Reset Filters</button>
+        </div>
+
+        <!-- Bulk Actions -->
+        <div class="bulk-actions">
+            <div class="bulk-margin-group">
+                <label for="bulkMargin">Target Margin %:</label>
+                <input type="number" id="bulkMargin" class="bulk-margin-input" placeholder="e.g. 10" step="0.5" min="0" max="70">
+                <button id="btnApplyMargin" class="btn btn-primary">📊 Apply to Selected</button>
+            </div>
+            <div class="bulk-action-buttons">
+                <button id="btnApproveSelected" class="btn btn-success">✓ Approve Selected</button>
+                <button id="btnRejectSelected" class="btn btn-danger">✗ Reject Selected</button>
+                <button id="btnPushSelected" class="btn btn-primary">⬆ Push to Etsy</button>
+                <span id="selectedCount" class="selected-count">0 selected</span>
+            </div>
+        </div>
+
+        <!-- Pricing Table -->
+        <div id="pricingList" class="table-container table-scroll">
+            <table class="data-table pricing-table">
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" id="selectAll" aria-label="Select all products"></th>
+                        <th class="sortable" data-sort="variation_sku">Variation SKU ▸</th>
+                        <th class="sortable" data-sort="margin_modifier">Target Margin % ▸</th>
+                        <th>Previous Margin %</th>
+                        <th class="sortable" data-sort="current_price">Current Price ▸</th>
+                        <th class="sortable" data-sort="calculated_price">Calculated Price ▸</th>
+                        <th>Change</th>
+                        <th class="sortable" data-sort="material_cost">Material Cost ▸</th>
+                        <th>Transaction (6.5%)</th>
+                        <th>Payment (4%+£0.2)</th>
+                        <th>Ad Fee (15%)</th>
+                        <th>Postage</th>
+                        <th>Total Fees</th>
+                        <th>Profit (No Ads)</th>
+                        <th class="sortable" data-sort="profit">Profit (with Ads) ▸</th>
+                        <th>Margin % (No Ads)</th>
+                        <th class="sortable" data-sort="profit_margin">Margin % (with Ads) ▸</th>
+                        <th class="sortable" data-sort="status">Status ▸</th>
+                    </tr>
+                </thead>
+                <tbody id="pricingTableBody">
+                    <tr>
+                        <td colspan="18" class="loading">Click "Calculate Prices" to begin</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <p>Pricing Manager - Calculate and review prices before pushing to Etsy</p>
+    </footer>
+
+    <script src="/pricing.js"></script>
+</body>
+</html>

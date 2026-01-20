@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master Stock Management</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <h1 class="nav-title">📦 Master Stock Management</h1>
+            <div class="nav-links">
+                <a href="/" class="nav-link active">Dashboard</a>
+                <a href="/materials.html" class="nav-link">Materials</a>
+                <a href="/products.html" class="nav-link">Master Stock</a>
+                <a href="/etsy.html" class="nav-link">Etsy Inventory</a>
+                <a href="/pricing.html" class="nav-link">Pricing</a>
+                <a href="/import.html" class="nav-link">Import</a>
+                <a href="/sales-analytics.html" class="nav-link">💰 Sales & Tax</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <section class="welcome-section">
+            <h2>Welcome to Master Stock Management</h2>
+            <p class="subtitle">Central system for product cost and profitability tracking</p>
+            
+            <div class="dashboard-grid">
+                <div class="card">
+                    <div class="card-icon">💎</div>
+                    <h3>Materials Manager</h3>
+                    <p>Define materials and their cost per gram. Material costs are used to calculate product costs.</p>
+                    <a href="/materials.html" class="btn btn-primary">Manage Materials</a>
+                </div>
+
+                <div class="card">
+                    <div class="card-icon">📋</div>
+                    <h3>Master Stock</h3>
+                    <p>View and manage your product catalog with automatic cost calculations and profit tracking.</p>
+                    <a href="/products.html" class="btn btn-primary">View Stock</a>
+                </div>
+
+                <div class="card">
+                    <div class="card-icon">📥</div>
+                    <h3>CSV Import</h3>
+                    <p>Import products from CSV file with simulation preview showing cost and margin changes.</p>
+                    <a href="/import.html" class="btn btn-primary">Import Data</a>
+                </div>
+
+                <div class="card">
+                    <div class="card-icon">💰</div>
+                    <h3>Sales & Tax Analytics</h3>
+                    <p>Import Etsy sales data, track revenue, calculate VAT and tax reporting.</p>
+                    <a href="/sales-analytics.html" class="btn btn-primary">View Analytics</a>
+                </div>
+            </div>
+        </section>
+
+        <section class="info-section">
+            <h3>System Features</h3>
+            <ul class="feature-list">
+                <li><strong>Material Management:</strong> Define materials with cost per gram</li>
+                <li><strong>Automatic Calculations:</strong> Cost of Item = Weight × Material Cost</li>
+                <li><strong>Profitability Tracking:</strong> Monitor margins and profit on each product</li>
+                <li><strong>Visual Indicators:</strong> Color-coded warnings for negative margins and low profitability</li>
+                <li><strong>CSV Import:</strong> Bulk import with simulation preview</li>
+                <li><strong>Immutable Keys:</strong> SKU and MaterialID cannot be changed once created</li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <p>Master Stock Management System v1.0 • Local Storage • Development Mode</p>
+    </footer>
+</body>
+</html>
