@@ -22,6 +22,17 @@ const importConfig = {
             ['Gold', 'Gold', '5.20'],
             ['Bronze', 'Bronze', '0.12']
         ]
+    },
+    'etsy-statement': {
+        name: 'Etsy Statement (Fees & Refunds)',
+        requiredFields: ['Date', 'Type', 'Title', 'Currency', 'Amount'],
+        optionalFields: [],
+        template: [
+            ['Date', 'Type', 'Title', 'Info', 'Currency', 'Amount', 'Fees & Taxes', 'Net', 'Tax Details'],
+            ['15 Jan, 2026', 'Sale', 'Sale of Order #1234567890', '', 'GBP', '£100.00', '-£6.50', '£93.50', ''],
+            ['15 Jan, 2026', 'Fee', 'Transaction fee (6.5% of £100)', '', 'GBP', '-£6.50', '', '-£6.50', ''],
+            ['19 Jan, 2026', 'Refund', 'Refund for Order #9876543210', '', 'GBP', '-£50.00', '', '-£50.00', '']
+        ]
     }
 };
 
@@ -278,18 +289,34 @@ async function simulateImport() {
             return mapped;
         });
         
-        const endpoint = currentImportType === 'products' 
-            ? '/api/products/import/simulate'
-            : '/api/materials/import/simulate';
+        let endpoint;
+        if (currentImportType === 'etsy-statement') {
+            // For Etsy statements, send the raw file
+            endpoint = '/api/import/etsy-statement/simulate';
+        } else {
+            endpoint = currentImportType === 'products' 
+                ? '/api/products/import/simulate'
+                : '/api/materials/import/simulate';
+        }
         
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                data: mappedData,
-                mode: importModeSelect.value
-            })
-        });
+        let response;
+        if (currentImportType === 'etsy-statement') {
+            const formData = new FormData();
+            formData.append('file', csvFileInput.files[0]);
+            response = await fetch(endpoint, {
+                method: 'POST',
+                body: formData
+            });
+        } else {
+            response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    data: mappedData,
+                    mode: importModeSelect.value
+                })
+            });
+        }
         
         const result = await response.json();
         
@@ -338,28 +365,41 @@ async function executeImport() {
         executeBtn.disabled = true;
         executeBtn.textContent = '⏳ Importing...';
         
-        // Map data
-        const mappedData = csvData.map(row => {
-            const mapped = {};
-            Object.keys(columnMap).forEach(field => {
-                const csvColumn = columnMap[field];
-                mapped[field] = row[csvColumn];
+        let endpoint;
+        let response;
+        
+        if (currentImportType === 'etsy-statement') {
+            endpoint = '/api/import/etsy-statement/execute';
+            const formData = new FormData();
+            formData.append('file', csvFileInput.files[0]);
+            response = await fetch(endpoint, {
+                method: 'POST',
+                body: formData
             });
-            return mapped;
-        });
-        
-        const endpoint = currentImportType === 'products' 
-            ? '/api/products/import/execute'
-            : '/api/materials/import/execute';
-        
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                data: mappedData,
-                mode: importModeSelect.value
-            })
-        });
+        } else {
+            // Map data
+            const mappedData = csvData.map(row => {
+                const mapped = {};
+                Object.keys(columnMap).forEach(field => {
+                    const csvColumn = columnMap[field];
+                    mapped[field] = row[csvColumn];
+                });
+                return mapped;
+            });
+            
+            endpoint = currentImportType === 'products' 
+                ? '/api/products/import/execute'
+                : '/api/materials/import/execute';
+            
+            response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    data: mappedData,
+                    mode: importModeSelect.value
+                })
+            });
+        }
         
         const result = await response.json();
         

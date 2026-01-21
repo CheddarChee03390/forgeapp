@@ -1,119 +1,111 @@
 /**
- * Sales Service (Facade)
- * Maintains backward compatibility while delegating to specialized services
+ * Sales Service (Thin Orchestration Layer)
+ * 
+ * Single Responsibility: Coordinate data flow between specialized services
+ * - salesSync: Fetch from Etsy, parse, insert to DB
+ * - salesCalculator: Compute metrics from Sales records
+ * - salesRepository: CRUD operations
+ * 
+ * This layer owns NO business logic—it delegates to specialized services.
  */
 import etsyClient from './etsy/etsyClient.js';
 import salesRepository from './sales/sales.repository.js';
-import analyticsService from './sales/analytics.service.js';
+import salesSync from './sales/sales.sync.js';
+import salesCalculator from './sales/sales.calculator.js';
 import etsyReceiptsClient from './sales/etsy-receipts.client.js';
 
 class SalesService {
     /**
-     * Sync orders from Etsy
+     * Sync orders from Etsy using specialized sync service
      * @param {number|Date} daysBackOrStartDate - Number of days back OR start date
      * @param {Date} endDate - Optional end date (only if first param is Date)
+     * @returns {Promise<{success: boolean, synced: number, message: string, dateRange: Object, errors?: string[]}>}
      */
     async syncOrdersFromEtsy(daysBackOrStartDate = 30, endDate = null) {
         try {
-            console.log('📥 syncOrdersFromEtsy called with:', { daysBackOrStartDate, endDate, type: typeof daysBackOrStartDate });
-            
-            // Handle both API signatures: (daysBack) and (startDate, endDate)
+            // Parse date arguments
             let startDate, finalEndDate;
             if (typeof daysBackOrStartDate === 'number') {
-                // Old API: syncOrdersFromEtsy(daysBack)
                 finalEndDate = new Date();
                 startDate = new Date();
                 startDate.setDate(startDate.getDate() - daysBackOrStartDate);
-                console.log('✅ Calculated dates from days back:', { startDate: startDate.toISOString(), finalEndDate: finalEndDate.toISOString() });
             } else {
-                // New API: syncOrdersFromEtsy(startDate, endDate)
                 startDate = new Date(daysBackOrStartDate);
                 finalEndDate = endDate ? new Date(endDate) : new Date();
-                console.log('✅ Using provided dates:', { startDate: startDate.toISOString(), finalEndDate: finalEndDate.toISOString() });
             }
 
-            // Validate dates
+            // Validate
             if (isNaN(startDate.getTime()) || isNaN(finalEndDate.getTime())) {
-                console.error('❌ Invalid dates:', { startDate, finalEndDate });
                 return { success: false, error: 'Invalid date format' };
             }
 
-            console.log(`🔄 Syncing orders from ${startDate.toISOString().split('T')[0]} to ${finalEndDate.toISOString().split('T')[0]}...`);
+            console.log(`🔄 Syncing Etsy orders from ${startDate.toISOString().split('T')[0]} to ${finalEndDate.toISOString().split('T')[0]}`);
 
+            // Get shop ID
             const shopId = await etsyClient.getShopId();
             if (!shopId) {
                 return { success: false, error: 'Failed to get shop_id' };
             }
 
-            let synced = 0;
-            const errors = [];
-
-            // Fetch all receipts
+            // Fetch receipts from Etsy
             const receipts = await etsyReceiptsClient.fetchReceipts(startDate, finalEndDate);
-
-            // Process each receipt
-            for (const receipt of receipts) {
-                try {
-                    // Skip cancelled orders
-                    if (receipt.status === 'Canceled') {
-                        continue;
-                    }
-
-                    // Extract transaction info from receipt
-                    const transactions = receipt.transactions || [];
-                    for (const transaction of transactions) {
-                        // Check if this specific transaction already synced
-                        // Use transaction_id to make each sale unique
-                        const orderId = `etsy-${receipt.receipt_id}-${transaction.transaction_id}`;
-                        const existing = salesRepository.getSaleByOrderId(orderId);
-                        if (existing) {
-                            continue; // Skip already synced transaction
-                        }
-
-                        // Etsy price format: {amount: 1234, divisor: 100, currency_code: "USD"}
-                        const price = transaction.price?.amount && transaction.price?.divisor
-                            ? transaction.price.amount / transaction.price.divisor
-                            : parseFloat(transaction.price) || 0;
-
-                        const saleData = {
-                            order_id: orderId,
-                            listing_id: transaction.listing_id,
-                            sku: transaction.sku || '',
-                            product_name: transaction.title || 'Unknown Product',
-                            quantity: transaction.quantity,
-                            sale_price: price,
-                            order_date: new Date(receipt.create_timestamp * 1000).toISOString().split('T')[0],
-                            tax_included: receipt.total_tax_cost > 0,
-                            notes: `Etsy Order #${receipt.receipt_id}`
-                        };
-
-                        const result = this.logSale(saleData);
-                        if (result.success) {
-                            synced++;
-                        } else {
-                            errors.push(`Transaction ${transaction.transaction_id}: ${result.error}`);
-                        }
-                    }
-                } catch (err) {
-                    errors.push(`Receipt ${receipt.receipt_id}: ${err.message}`);
-                }
+            if (!receipts || receipts.length === 0) {
+                return { success: true, synced: 0, message: 'No receipts found for date range', dateRange: { start: startDate.toISOString().split('T')[0], end: finalEndDate.toISOString().split('T')[0] } };
             }
 
+            // Delegate to specialized sync service (fetch → parse → store)
+            const syncResult = await salesSync.syncReceiptsToDb(receipts);
+
             return {
-                success: true,
-                synced,
-                message: `Successfully synced ${synced} orders from Etsy`,
-                dateRange: { 
-                    start: startDate.toISOString().split('T')[0], 
-                    end: finalEndDate.toISOString().split('T')[0] 
-                },
-                errors: errors.length > 0 ? errors : undefined
+                success: syncResult.success,
+                synced: syncResult.synced,
+                message: `Successfully synced ${syncResult.synced} orders from Etsy`,
+                dateRange: { start: startDate.toISOString().split('T')[0], end: finalEndDate.toISOString().split('T')[0] },
+                errors: syncResult.errors?.length > 0 ? syncResult.errors : undefined
             };
         } catch (error) {
-            console.error('❌ Error syncing orders:', error);
+            console.error('❌ Error syncing orders:', error.message);
             return { success: false, error: error.message };
         }
     }
+
+    /**
+     * Get sales metrics for date range
+     * @param {Date} startDate
+     * @param {Date} endDate
+     * @param {number} taxRate - Tax rate (e.g., 0.20 for 20%)
+     * @param {number} shopLevelFees - Fees not linked to orders (marketing, postage, etc.)
+     * @returns {{total_revenue, net_revenue, gross_profit, ...}}
+     */
+    getSalesMetrics(startDate, endDate, taxRate = 0.0, shopLevelFees = 0) {
+        const sales = salesRepository.getSalesByDateRange(startDate, endDate);
+        return salesCalculator.calculateMetrics(sales, taxRate, shopLevelFees);
+    }
+
+    /**
+     * Get profitability breakdown by SKU
+     * @param {Date} startDate
+     * @param {Date} endDate
+     * @returns {Array} SKUs sorted by profit descending
+     */
+    getProfitabilityBySku(startDate, endDate) {
+        const sales = salesRepository.getSalesByDateRange(startDate, endDate);
+        return salesCalculator.calculateProfitabilityBySku(sales);
+    }
+
+    /**
+     * BACKWARD COMPATIBILITY: Calculate metrics for a specific month
+     * Used by existing routes; delegates to getSalesMetrics()
+     * @param {number} year - YYYY
+     * @param {number} month - 1-12
+     * @returns {Object} Metrics object
+     */
+    calculateMetrics(year, month) {
+        const sales = salesRepository.getSalesForMonth(year, month);
+        return salesCalculator.calculateMetrics(sales, 0.0, 0);
+    }
+
+    // ===== Repository Delegation (CRUD & Retrieval) =====
 
     /**
      * Log a single sale transaction
@@ -162,14 +154,6 @@ class SalesService {
      */
     updateSaleStatus(saleId, newStatus) {
         return salesRepository.updateSaleStatus(saleId, newStatus);
-    }
-
-    /**
-     * Calculate metrics for period
-     */
-    calculateMetrics(year, month) {
-        const sales = salesRepository.getSalesForMonth(year, month);
-        return analyticsService.calculateMetrics(sales);
     }
 
     /**

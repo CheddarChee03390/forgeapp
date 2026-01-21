@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Console</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-title">Forge Admin</div>
+            <div class="nav-links">
+                <a class="nav-link" href="/index.html">Home</a>
+                <a class="nav-link" href="/sales-analytics.html">Sales</a>
+                <a class="nav-link" href="/import-v2.html">Import</a>
+                <a class="nav-link active" href="/debug.html">Debug</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="page-header">
+            <div>
+                <h2>Debug & Admin Console</h2>
+                <p class="text-muted">Administrator-only tools. Use carefully.</p>
+            </div>
+        </div>
+
+        <section class="card" id="receiptTester">
+            <h3>Pull Etsy Receipt by ID</h3>
+            <p class="text-muted">Fetch a live receipt (includes transactions) directly from Etsy.</p>
+            <div class="form-grid receipt-grid">
+                <div class="form-group">
+                    <label for="receiptId">Receipt ID</label>
+                    <input type="text" id="receiptId" class="form-control" placeholder="3917025997" />
+                </div>
+                <button id="btnFetchReceipt" class="btn btn-primary">Fetch Receipt</button>
+            </div>
+            <pre id="receiptResult" class="code-block spaced-block"></pre>
+        </section>
+
+        <section class="card" id="bulkImport">
+            <h3>Bulk Import Etsy Statements</h3>
+            <p class="text-muted">Admin-only. Use the Import page to run statement imports; bulk is intentionally isolated from general UI.</p>
+            <div class="btn-row tight-wrap">
+                <a class="btn btn-primary" href="/import-v2.html">Go to Import</a>
+            </div>
+            <ul class="text-muted muted-list">
+                <li>Choose "Etsy Statement" as import type.</li>
+                <li>Run simulate, then execute for each month you need.</li>
+                <li>Metrics can be verified via the Analytics page or the metrics API.</li>
+            </ul>
+        </section>
+
+        <section class="card" id="dbDanger">
+            <h3>Danger Zone</h3>
+            <p class="text-muted">Irreversible operations. Type <strong>CONFIRM</strong> to enable.</p>
+            <div class="form-group narrow-field">
+                <label for="confirmToken">Confirm Token</label>
+                <input type="text" id="confirmToken" class="form-control" placeholder="CONFIRM" />
+            </div>
+            <div class="btn-row tight-wrap">
+                <button class="btn btn-danger" data-action="sales-and-fees">Clear Sales + Etsy Fees</button>
+                <button class="btn btn-danger" data-action="etsy-fees">Clear Etsy Fees Only</button>
+                <button class="btn btn-danger" data-action="materials">Clear Materials</button>
+                <button class="btn btn-danger" data-action="products">Clear Products/Inventory</button>
+                <button class="btn btn-danger" data-action="oauth-tokens">Clear OAuth Tokens</button>
+            </div>
+            <pre id="clearResult" class="code-block spaced-block"></pre>
+        </section>
+    </main>
+
+    <script src="/debug.js"></script>
+</body>
+</html>

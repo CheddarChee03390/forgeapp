@@ -425,8 +425,8 @@ class ListingsService {
                 listing_id, product_id, variation_sku, quantity, price, 
                 property_values, last_synced, created_at, updated_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(listing_id, product_id) DO UPDATE SET
-                variation_sku = excluded.variation_sku,
+            ON CONFLICT(listing_id, variation_sku) DO UPDATE SET
+                product_id = excluded.product_id,
                 quantity = excluded.quantity,
                 price = excluded.price,
                 property_values = excluded.property_values,
@@ -619,29 +619,29 @@ class ListingsService {
         const inventory = await response.json();
         console.log(`   - Inventory products count: ${inventory.products?.length || 0}`);
         
-        // Find the product and offering to update
-        let updated = false;
+        // Find ALL products with matching SKU and update their prices
+        // (Etsy requires consistent pricing across all products with same SKU)
+        let updatedCount = 0;
         for (const product of inventory.products) {
-            console.log(`   - Checking product SKU: ${product.sku}`);
             // Match by product SKU, not offering SKU
             if (product.sku === variationSku) {
+                console.log(`   - Updating product SKU: ${product.sku}`);
                 for (const offering of product.offerings) {
-                    console.log(`     - Offering ID: ${offering.offering_id}`);
                     const oldPrice = offering.price.amount / offering.price.divisor;
                     // Convert price to decimal format (per Etsy docs)
                     offering.price = newPrice;
-                    console.log(`   ✓ Found product! Old price: £${oldPrice}, New price: £${newPrice}`);
-                    updated = true;
-                    break;
+                    console.log(`     ✓ Offering ${offering.offering_id}: £${oldPrice} → £${newPrice}`);
                 }
-                break;
+                updatedCount++;
             }
         }
 
-        if (!updated) {
+        if (updatedCount === 0) {
             console.error(`❌ Variation SKU ${variationSku} not found in listing ${listingId}`);
             throw new Error(`Variation SKU ${variationSku} not found in listing ${listingId}`);
         }
+        
+        console.log(`   ✓ Updated ${updatedCount} product(s) with SKU ${variationSku}`);
 
         const updateUrl = etsyClient.buildUrl(`/application/listings/${listingId}/inventory`);
         console.log(`   - PUT URL: ${updateUrl}`);

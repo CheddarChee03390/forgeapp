@@ -1,6 +1,8 @@
 // Sales API Routes - Order and transaction tracking
 import express from 'express';
 import salesService from '../services/salesService.js';
+import etsyFeesService from '../services/etsyFeesService.js';
+import db from '../services/database.js';
 import { asyncHandler, ValidationError, NotFoundError } from '../middleware/errorHandler.js';
 
 const router = express.Router();
@@ -161,6 +163,70 @@ router.get('/metrics/:year/:month', asyncHandler(async (req, res) => {
 }));
 
 /**
+ * GET /api/sales/metrics
+ * Query: ?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD&taxRate=0.20&shopLevelFees=0
+ * Returns calculated metrics for arbitrary date range
+ */
+router.get('/metrics', asyncHandler(async (req, res) => {
+    const { startDate, endDate, taxRate = 0, shopLevelFees = 0 } = req.query;
+
+    if (!startDate || !endDate) {
+        throw new ValidationError('Missing parameters', ['startDate and endDate required']);
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        throw new ValidationError('Invalid date format', ['startDate and endDate must be ISO date strings']);
+    }
+
+    const parsedTaxRate = parseFloat(taxRate) || 0;
+    const parsedShopFees = parseFloat(shopLevelFees) || 0;
+
+    const metrics = salesService.getSalesMetrics(startDate, endDate, parsedTaxRate, parsedShopFees);
+
+    if (!metrics) {
+        throw new NotFoundError('No sales data for this period');
+    }
+
+    res.json({
+        success: true,
+        date_range: { start: startDate, end: endDate },
+        metrics,
+        timestamp: new Date().toISOString()
+    });
+}));
+
+/**
+ * GET /api/sales/profitability
+ * Query: ?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
+ * Returns profitability grouped by SKU for date range
+ */
+router.get('/profitability', asyncHandler(async (req, res) => {
+    const { startDate, endDate } = req.query;
+
+    if (!startDate || !endDate) {
+        throw new ValidationError('Missing parameters', ['startDate and endDate required']);
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        throw new ValidationError('Invalid date format', ['startDate and endDate must be ISO date strings']);
+    }
+
+    const data = salesService.getProfitabilityBySku(startDate, endDate);
+
+    res.json({
+        success: true,
+        date_range: { start: startDate, end: endDate },
+        count: data.length,
+        data,
+        timestamp: new Date().toISOString()
+    });
+}));
+
+/**
  * GET /api/sales/profit-by-sku/:year/:month
  * Get profit breakdown by SKU
  */
@@ -256,6 +322,241 @@ router.post('/log', asyncHandler(async (req, res) => {
 }));
 
 /**
+ * GET /api/sales/by-category
+ * Get fees grouped by Etsy Activity Summary categories
+ * Query params: startDate, endDate (YYYY-MM-DD)
+ */
+router.get('/by-category', asyncHandler(async (req, res) => {
+    const { startDate, endDate } = req.query;
+    
+    if (!startDate || !endDate) {
+        return res.status(400).json({
+            success: false,
+            error: 'startDate and endDate are required'
+        });
+    }
+    
+    // Build category totals with default values - separate fees and credits
+    const categories = {
+        fees: { 
+            listing: 0, listingCredits: 0,
+            transaction: 0, transactionCredits: 0,
+            processing: 0, processingCredits: 0,
+            regulatory: 0, regulatoryCredits: 0,
+            vat: 0, vatCredits: 0,
+            miscCredit: 0  // Etsy compensation credits (reduces net fee position)
+        },
+        marketing: { 
+            etsy_ads: 0, etsyAdsCredits: 0,
+            offsite_ads: 0, offsiteAdsCredits: 0,
+            orphanCredits: []
+        },
+        delivery: { 
+            postage: 0, postageCredits: 0
+        },
+        sales: 0,
+        salesCredits: 0
+    };
+    
+    try {
+        // Fetch all fees within date range using is_credit flag and absolute amounts
+        const allFees = db.prepare(`
+            SELECT 
+                fee_type,
+                SUM(CASE 
+                    WHEN fee_type = 'etsy_misc_credit' THEN 0
+                    WHEN fee_type = 'vat_on_fees' AND amount > 0 THEN 0
+                    WHEN COALESCE(is_credit, 0) = 1 THEN 0
+                    WHEN description LIKE '%credit%' THEN 0
+                    ELSE ABS(amount)
+                END) as fees,
+                SUM(CASE 
+                    WHEN fee_type = 'etsy_misc_credit' THEN ABS(amount)
+                    WHEN fee_type = 'vat_on_fees' AND amount > 0 THEN ABS(amount)
+                    WHEN COALESCE(is_credit, 0) = 1 THEN ABS(amount)
+                    WHEN description LIKE '%credit%' THEN ABS(amount)
+                    ELSE 0 
+                END) as credits
+            FROM Etsy_Fees 
+            WHERE DATE(charged_date, 'localtime') >= ? 
+                AND DATE(charged_date, 'localtime') <= ?
+            GROUP BY fee_type
+        `).all(startDate, endDate);
+        
+        allFees.forEach(fee => {
+            const feeAmount = fee.fees || 0;
+            const creditAmount = fee.credits || 0;
+            
+            switch(fee.fee_type) {
+                case 'listing_fee': 
+                    categories.fees.listing = feeAmount;
+                    categories.fees.listingCredits = creditAmount;
+                    break;
+                case 'transaction_fee': 
+                    categories.fees.transaction = feeAmount;
+                    categories.fees.transactionCredits = creditAmount;
+                    break;
+                case 'processing_fee': 
+                    categories.fees.processing = feeAmount;
+                    categories.fees.processingCredits = creditAmount;
+                    break;
+                case 'regulatory_fee': 
+                    categories.fees.regulatory = feeAmount;
+                    categories.fees.regulatoryCredits = creditAmount;
+                    break;
+                case 'vat_on_fees': 
+                    categories.fees.vat = feeAmount;
+                    categories.fees.vatCredits = creditAmount;
+                    break;
+                case 'etsy_ads': 
+                    categories.marketing.etsy_ads = feeAmount;
+                    categories.marketing.etsyAdsCredits = creditAmount;
+                    break;
+                case 'offsite_ads': 
+                    categories.marketing.offsite_ads = feeAmount;
+                    categories.marketing.offsiteAdsCredits = creditAmount;
+                    break;
+                case 'postage_labels': 
+                    categories.delivery.postage = feeAmount;
+                    categories.delivery.postageCredits = creditAmount;
+                    break;
+                case 'etsy_misc_credit':
+                    categories.fees.miscCredit = creditAmount;
+                    break;
+            }
+        });
+
+        // Reallocate VAT-labelled credits that sit under other fee types (Etsy prefixes description with "VAT:")
+        const vatCreditAdjustments = db.prepare(`
+            SELECT fee_type, 
+                   SUM(CASE WHEN COALESCE(is_credit, 0) = 1 OR amount > 0 THEN ABS(amount) ELSE 0 END) AS credit_total
+            FROM Etsy_Fees
+            WHERE DATE(charged_date, 'localtime') >= ?
+              AND DATE(charged_date, 'localtime') <= ?
+              AND description LIKE 'VAT:%'
+              AND fee_type != 'vat_on_fees'
+            GROUP BY fee_type
+        `).all(startDate, endDate);
+
+        vatCreditAdjustments.forEach(adj => {
+            const credit = adj.credit_total || 0;
+            if (!credit) return;
+
+            // Add to VAT credits bucket
+            categories.fees.vatCredits += credit;
+
+            // Remove from the bucket it was originally counted in to avoid double counting
+            switch(adj.fee_type) {
+                case 'transaction_fee':
+                    categories.fees.transactionCredits = Math.max(0, categories.fees.transactionCredits - credit);
+                    break;
+                case 'processing_fee':
+                    categories.fees.processingCredits = Math.max(0, categories.fees.processingCredits - credit);
+                    break;
+                case 'regulatory_fee':
+                    categories.fees.regulatoryCredits = Math.max(0, categories.fees.regulatoryCredits - credit);
+                    break;
+                case 'listing_fee':
+                    categories.fees.listingCredits = Math.max(0, categories.fees.listingCredits - credit);
+                    break;
+            }
+        });
+        
+        // Get sales revenue (match Etsy: ALL sales in period, including ones later refunded)
+        const salesData = db.prepare(`
+            SELECT 
+                SUM(sale_price) as total_revenue,
+                SUM(tax_amount) as total_tax
+            FROM Sales 
+            WHERE DATE(order_date) >= ? 
+                AND DATE(order_date) <= ?
+        `).get(startDate, endDate);
+        
+        // Get refunds that were PROCESSED (charged_date) in this period, regardless of original sale date
+        // This matches Etsy's reporting where refunds appear in the month they're processed
+        // Use the refund amount directly since it's the actual refund amount
+        const refundsData = db.prepare(`
+            SELECT 
+                SUM(ABS(f.amount)) as total_refunds,
+                SUM(s.tax_amount) as refund_tax
+            FROM Etsy_Fees f
+            INNER JOIN Sales s ON f.order_id = s.order_id
+            WHERE f.fee_type = 'refund'
+                AND DATE(f.charged_date, 'localtime') >= ?
+                AND DATE(f.charged_date, 'localtime') <= ?
+        `).get(startDate, endDate);
+        
+        const totalRevenue = salesData?.total_revenue || 0;
+        const totalTax = salesData?.total_tax || 0;
+        const totalRefunds = refundsData?.total_refunds || 0;
+        const refundTax = refundsData?.refund_tax || 0;
+        
+        // Credits in Sales section = tax refunded (when orders are refunded, tax is credited back)
+        categories.salesCredits = refundTax;
+        
+        // Net sales = gross sales - tax - refunds + refund tax (tax gets refunded too)
+        categories.sales = totalRevenue - totalTax - totalRefunds + refundTax;
+        categories.total_sales = totalRevenue;
+        categories.total_refunds = totalRefunds;
+        categories.total_tax = totalTax;
+        categories.refund_tax = refundTax;
+    } catch (error) {
+        console.error('[by-category] Database error:', error);
+        // Return categories with zeros if database fails
+    }
+    
+    res.json({
+        success: true,
+        fees: categories.fees,
+        marketing: categories.marketing,
+        delivery: categories.delivery,
+        sales: categories.sales,
+        sales_credits: categories.salesCredits,
+        total_sales: categories.total_sales,
+        total_refunds: categories.total_refunds,
+        total_tax: categories.total_tax,
+        refund_tax: categories.refund_tax
+    });
+}));
+
+/**
+ * GET /api/sales/shop-level
+ * Get shop-level fees (Marketing, VAT, Postage, etc.) that don't link to specific orders
+ * Query params: startDate, endDate (YYYY-MM-DD)
+ */
+router.get('/shop-level', asyncHandler(async (req, res) => {
+    const { startDate, endDate } = req.query;
+    
+    if (!startDate || !endDate) {
+        return res.status(400).json({
+            success: false,
+            error: 'startDate and endDate are required'
+        });
+    }
+    
+    // Get shop-level fees (order_id IS NULL) within date range
+    const fees = db.prepare(`
+        SELECT 
+            fee_type, 
+            ROUND(SUM(amount), 2) as total
+        FROM Etsy_Fees 
+        WHERE order_id IS NULL 
+            AND charged_date >= ? 
+            AND charged_date <= ?
+        GROUP BY fee_type
+    `).all(startDate, endDate);
+    
+    // Calculate total shop-level fees
+    const total = fees.reduce((sum, fee) => sum + Math.abs(fee.total), 0);
+    
+    res.json({
+        success: true,
+        fees: fees,
+        total: Math.round(total * 100) / 100  // Round to 2 decimals
+    });
+}));
+
+/**
  * GET /api/sales/:saleId
  * Get single sale details
  */
@@ -301,6 +602,76 @@ router.put('/:saleId/status', asyncHandler(async (req, res) => {
         message: `Sale status updated to ${status}`,
         sale_id: req.params.saleId,
         status,
+        timestamp: new Date().toISOString()
+    });
+}));
+
+/**
+ * GET /api/sales/fees/stats
+ * Get overall fee statistics
+ */
+router.get('/fees/stats', asyncHandler(async (req, res) => {
+    const stats = etsyFeesService.getFeeStats();
+    
+    res.json({
+        success: true,
+        data: stats,
+        timestamp: new Date().toISOString()
+    });
+}));
+
+/**
+ * GET /api/sales/fees/monthly/:year/:month
+ * Get fees for specific month
+ */
+router.get('/fees/monthly/:year/:month', asyncHandler(async (req, res) => {
+    const { year, month } = req.params;
+    const fees = etsyFeesService.getMonthlyFees(parseInt(year), parseInt(month));
+    
+    res.json({
+        success: true,
+        data: fees,
+        timestamp: new Date().toISOString()
+    });
+}));
+
+/**
+ * GET /api/sales/fees/range
+ * Get fees for date range
+ * Query: ?startDate=2025-01-01&endDate=2025-01-31
+ */
+router.get('/fees/range', asyncHandler(async (req, res) => {
+    const { startDate, endDate } = req.query;
+    
+    if (!startDate || !endDate) {
+        throw new ValidationError('Missing parameters', ['startDate and endDate are required']);
+    }
+    
+    const fees = etsyFeesService.getFeesForDateRange(startDate, endDate);
+    
+    res.json({
+        success: true,
+        startDate,
+        endDate,
+        data: fees,
+        timestamp: new Date().toISOString()
+    });
+}));
+
+/**
+ * GET /api/sales/fees/order/:orderId
+ * Get fee breakdown for specific order
+ */
+router.get('/fees/order/:orderId', asyncHandler(async (req, res) => {
+    const { orderId } = req.params;
+    const breakdown = etsyFeesService.getOrderFeeBreakdown(orderId);
+    const total = etsyFeesService.getOrderFees(orderId);
+    
+    res.json({
+        success: true,
+        orderId,
+        totalFees: total,
+        breakdown,
         timestamp: new Date().toISOString()
     });
 }));

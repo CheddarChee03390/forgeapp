@@ -6,6 +6,7 @@
 
 import db from '../database.js';
 import costHistoryService from '../costHistoryService.js';
+import supplierCostsService from '../supplierCostsService.js';
 
 class SalesRepository {
     /**
@@ -15,46 +16,101 @@ class SalesRepository {
         try {
             const {
                 order_id,
+                etsy_order_number,
                 listing_id,
                 sku,
                 product_name,
                 quantity = 1,
                 sale_price,
+                tax_amount = 0,
                 order_date = new Date().toISOString(),
                 material_id,
                 tax_included = 0,
+                status = 'pending',
                 notes
             } = saleData;
 
-            // Get material cost at time of sale (historical lookup)
-            // Use material_id if provided, otherwise use sku
+            // Get cost at time of sale with historical logic
+            // Priority: Supplier Cost (only if effective on/before order_date) → Material (weight × rate) → 0
             let material_cost_at_sale = 0;
-            const materialLookup = material_id || sku;
-            if (materialLookup) {
-                const costRecord = costHistoryService.getCostAtDate(materialLookup, order_date);
-                if (costRecord) {
-                    material_cost_at_sale = costRecord.cost * quantity;
+
+            if (sku) {
+                // 1) Supplier cost (strict by date)
+                const supplierCost = supplierCostsService.getCostForDate(sku, order_date);
+                if (supplierCost !== null) {
+                    material_cost_at_sale = parseFloat(supplierCost) * (parseInt(quantity) || 1);
+                } else {
+                    // 2) Weight × material rate at order_date
+                    let resolvedSku = String(sku);
+                    try {
+                        const original = String(sku || '');
+                        const stripped = original.startsWith('ETSY_') ? original.slice(5) : original;
+                        const dashToUnderscore = (s) => s.replace(/-/g, '_');
+                        const candidates = [original, stripped, dashToUnderscore(original), dashToUnderscore(stripped)];
+                        for (const candidate of candidates) {
+                            const mapRow = db.prepare(`
+                                SELECT internal_sku 
+                                FROM Marketplace_Sku_Map 
+                                WHERE variation_sku = ? COLLATE NOCASE
+                                AND (is_active = 1 OR is_active IS NULL)
+                                ORDER BY rowid DESC
+                                LIMIT 1
+                            `).get(candidate);
+                            if (mapRow && mapRow.internal_sku) { resolvedSku = mapRow.internal_sku; break; }
+                        }
+                        if (resolvedSku === String(sku)) {
+                            // If still unresolved, but SKU exists in Master_Skus, treat it as internal
+                            const exists = db.prepare(`SELECT 1 FROM Master_Skus WHERE SKU = ? LIMIT 1`).get(stripped);
+                            if (exists) resolvedSku = stripped;
+                        }
+                    } catch {}
+
+                    let weight = 0;
+                    let materialIdForLookup = material_id || null;
+                    try {
+                        const skuRow = db.prepare(`
+                            SELECT SKU, Weight, Material 
+                            FROM Master_Skus 
+                            WHERE SKU = ?
+                            LIMIT 1
+                        `).get(resolvedSku);
+                        if (skuRow) {
+                            weight = parseFloat(skuRow.Weight) || 0;
+                            if (!materialIdForLookup && skuRow.Material) materialIdForLookup = skuRow.Material;
+                        }
+                    } catch {}
+
+                    if (materialIdForLookup) {
+                        const rateRecord = costHistoryService.getCostAtDate(String(materialIdForLookup), order_date);
+                        if (rateRecord && typeof rateRecord.cost === 'number') {
+                            const perUnit = (parseFloat(weight) || 0) * rateRecord.cost;
+                            material_cost_at_sale = perUnit * (parseInt(quantity) || 1);
+                        }
+                    }
                 }
             }
 
             // Insert sale
             const insert = db.prepare(`
                 INSERT INTO Sales 
-                (order_id, listing_id, sku, product_name, quantity, sale_price, 
-                 material_cost_at_sale, tax_included, order_date, notes)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (order_id, etsy_order_number, listing_id, sku, product_name, quantity, sale_price, 
+                 material_cost_at_sale, tax_amount, tax_included, order_date, status, notes)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `);
 
             const result = insert.run(
                 String(order_id),
+                String(etsy_order_number || ''),
                 listing_id ? parseInt(listing_id) : null,
                 String(sku || ''),
                 String(product_name || ''),
                 parseInt(quantity) || 1,
                 parseFloat(sale_price),
                 parseFloat(material_cost_at_sale) || 0,
+                parseFloat(tax_amount) || 0,
                 tax_included ? 1 : 0,
                 String(order_date),
+                String(status || 'pending'),
                 String(notes || '')
             );
 
@@ -85,6 +141,7 @@ class SalesRepository {
                     quantity,
                     sale_price,
                     material_cost_at_sale,
+                    tax_amount,
                     tax_included,
                     order_date,
                     status
@@ -118,6 +175,7 @@ class SalesRepository {
                     s.quantity,
                     s.sale_price,
                     s.material_cost_at_sale,
+                    s.tax_amount,
                     s.tax_included,
                     s.order_date,
                     s.status,
@@ -149,6 +207,7 @@ class SalesRepository {
                     quantity,
                     sale_price,
                     material_cost_at_sale,
+                    tax_amount,
                     order_date,
                     status
                 FROM Sales 
@@ -161,6 +220,42 @@ class SalesRepository {
         } catch (error) {
             console.error('❌ Error getting sales by SKU:', error);
             return [];
+        }
+    }
+
+    /**
+     * Update tax amount for an order
+     */
+    updateTaxAmount(orderId, taxAmount) {
+        try {
+            const stmt = db.prepare(`
+                UPDATE Sales
+                SET tax_amount = ?
+                WHERE order_id = ?
+            `);
+            const res = stmt.run(parseFloat(taxAmount) || 0, String(orderId));
+            return { success: true, updated: res.changes };
+        } catch (error) {
+            console.error('❌ Error updating tax amount:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Update sale price for an order
+     */
+    updateSalePrice(orderId, salePrice) {
+        try {
+            const stmt = db.prepare(`
+                UPDATE Sales
+                SET sale_price = ?
+                WHERE order_id = ?
+            `);
+            const res = stmt.run(parseFloat(salePrice) || 0, String(orderId));
+            return { success: true, updated: res.changes };
+        } catch (error) {
+            console.error('❌ Error updating sale price:', error);
+            return { success: false, error: error.message };
         }
     }
 

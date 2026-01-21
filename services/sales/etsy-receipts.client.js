@@ -44,10 +44,13 @@ class EtsyReceiptsClient {
 
                 // Build full URL - Etsy Receipts API requires /application/ prefix
                 const url = etsyClient.buildUrl(`/application/shops/${shopId}/receipts?${params.toString()}`);
-                const response = await etsyClient.etsyFetchWithApiKey(url);
+                console.log(`📡 Fetching receipts from: ${url}`);
+                    const response = await etsyClient.etsyFetchWithApiKey(url);
+                console.log(`📡 Response status: ${response.status}`);
 
                 if (!response.ok) {
                     const error = await response.json().catch(() => ({}));
+                    console.log(`📡 Error response body:`, error);
                     throw new Error(
                         error.error || `Etsy API error: ${response.status} ${response.statusText}`
                     );

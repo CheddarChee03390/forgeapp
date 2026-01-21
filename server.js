@@ -13,6 +13,7 @@ import salesRoutes from './routes/sales.js';
 import importRoutes from './routes/import.js';
 import reportsRoutes from './routes/reports.js';
 import costsRoutes from './routes/costs.js';
+import debugRoutes from './routes/debug.js';
 import { errorHandler, asyncHandler } from './middleware/errorHandler.js';
 import { backupOnStartup, scheduleDailyBackups } from './utils/backup.js';
 
@@ -34,6 +35,7 @@ app.use('/api/sales', salesRoutes);
 app.use('/api/import', importRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/costs', costsRoutes);
+app.use('/api/debug', debugRoutes);
 app.use('/oauth', oauthRoutes);
 app.use('/api/maintenance', maintenanceRoutes);
 

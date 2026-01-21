@@ -449,9 +449,7 @@
                         <button onclick="syncEtsyOrders()" class="btn btn-primary" id="syncBtn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 10px 20px; font-size: 14px; white-space: nowrap;">
                             🔄 Sync Orders
                         </button>
-                        <button onclick="clearSalesData()" class="btn" id="clearBtn" style="background: #dc3545; color: white; padding: 10px 20px; font-size: 14px; white-space: nowrap;">
-                            🗑️ Clear All
-                        </button>
+                        <!-- Clear all moved to Debug page to avoid accidental use -->
                     </div>
                 </div>
             </div>
@@ -474,7 +472,7 @@
 
                 <div class="tax-rate-control">
                     <label for="taxRateInput" style="font-size: 12px; font-weight: 500;">Tax:</label>
-                    <input type="number" id="taxRateInput" value="25" min="0" max="100">
+                    <input type="number" id="taxRateInput" value="20" min="0" max="100">
                     <span style="font-size: 12px; color: #666;">%</span>
                 </div>
             </div>
@@ -483,6 +481,42 @@
             <div class="date-picker-modal" id="datePickerModal">
                 <div class="date-picker-content">
                     <h3 style="margin: 0 0 20px 0; color: #333;">Select Date Range</h3>
+                    
+                    <div class="date-picker-row">
+                        <div class="date-picker-field">
+                            <label>Month</label>
+                            <select id="monthSelect" onchange="updateMonthYear()">
+                                <option value="">-- Select Month --</option>
+                                <option value="01">January</option>
+                                <option value="02">February</option>
+                                <option value="03">March</option>
+                                <option value="04">April</option>
+                                <option value="05">May</option>
+                                <option value="06">June</option>
+                                <option value="07">July</option>
+                                <option value="08">August</option>
+                                <option value="09">September</option>
+                                <option value="10">October</option>
+                                <option value="11">November</option>
+                                <option value="12">December</option>
+                            </select>
+                        </div>
+                        <div class="date-picker-field">
+                            <label>Year</label>
+                            <select id="yearSelect" onchange="updateMonthYear()">
+                                <option value="">-- Select Year --</option>
+                                <option value="2026">2026</option>
+                                <option value="2025">2025</option>
+                                <option value="2024">2024</option>
+                                <option value="2023">2023</option>
+                                <option value="2022">2022</option>
+                                <option value="2021">2021</option>
+                                <option value="2020">2020</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div style="margin: 15px 0; color: #999; text-align: center; font-size: 12px;">OR</div>
                     
                     <div class="date-picker-row">
                         <div class="date-picker-field">
@@ -502,15 +536,138 @@
                 </div>
             </div>
 
-            <!-- Key Metrics -->
-            <div class="analytics-container">
-                <div class="metric-card revenue">
-                    <div class="metric-label">Total Revenue</div>
-                    <div class="metric-value" id="totalRevenue">£0.00</div>
+            <!-- Etsy-style Activity Summary -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0;">
+                <!-- Sales Box -->
+                <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 24px;">💰</span>
+                            <h3 style="margin: 0; font-size: 18px;">Sales</h3>
+                        </div>
+                        <div style="font-size: 20px; font-weight: bold; color: #28a745;" id="totalRevenueBox">£0.00</div>
+                    </div>
+                    <div style="font-size: 13px; color: #666; line-height: 1.8;">
+                        <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+                            <span>Total sales</span>
+                            <span style="font-weight: 500;" id="salesTotalSales">£0.00</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+                            <span>Refunds</span>
+                            <span style="font-weight: 500;" id="salesTotalRefunds">£0.00</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+                            <span>Sales tax paid by buyer</span>
+                            <span style="font-weight: 500; color: #28a745;" id="salesTaxPaidByBuyer">£0.00</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+                            <span>Credits</span>
+                            <span style="font-weight: 500; color: #28a745;" id="salesCredits">£0.00</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 8px 0;">
+                            <span>VAT paid by buyer</span>
+                            <span style="font-weight: 500;" id="vatPaidByBuyer">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fees Box -->
+                <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 24px;">💳</span>
+                            <h3 style="margin: 0; font-size: 18px;">Fees</h3>
+                        </div>
+                        <div style="font-size: 20px; font-weight: bold; color: #dc3545;" id="totalFeesBox">-£0.00</div>
+                    </div>
+                    <div style="font-size: 13px; color: #666; line-height: 1.8;">
+                        <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+                            <span>Listing</span>
+                            <span style="font-weight: 500;" id="feesListing">-£0.00</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+                            <span>Transaction</span>
+                            <span style="font-weight: 500;" id="feesTransaction">-£0.00</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+                            <span>Processing</span>
+                            <span style="font-weight: 500;" id="feesProcessing">-£0.00</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+                            <span>Regulatory</span>
+                            <span style="font-weight: 500;" id="feesRegulatory">-£0.00</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 8px 0;">
+                            <span>VAT on fees</span>
+                            <span style="font-weight: 500;" id="feesVat">-£0.00</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+                            <span>Misc. Etsy credits</span>
+                            <span style="font-weight: 500; color: #28a745;" id="feesMiscCredit">£0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Marketing Box -->
+                <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 24px;">📢</span>
+                            <h3 style="margin: 0; font-size: 18px;">Marketing</h3>
+                        </div>
+                        <div style="font-size: 20px; font-weight: bold; color: #dc3545;" id="totalMarketingBox">-£0.00</div>
+                    </div>
+                    <div style="font-size: 13px; color: #666; line-height: 1.8;">
+                        <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+                            <span>Etsy Ads</span>
+                            <span style="font-weight: 500;" id="marketingEtsyAds">-£0.00</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+                            <span>Offsite Ads</span>
+                            <span style="font-weight: 500;" id="marketingOffsiteAds">-£0.00</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 8px 0;">
+                            <span>Credits</span>
+                            <span style="font-weight: 500; color: #28a745;" id="marketingCredits">£0.00</span>
+                        </div>
+                        <div id="marketingOrphanContainer" style="display: none; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #ddd;">
+                            <div style="font-weight: 600; color: #dc3545; margin-bottom: 6px;">Orphan credits (excluded from totals)</div>
+                            <ul id="marketingOrphanList" style="margin: 0; padding-left: 18px; color: #444; font-size: 12px; line-height: 1.5;"></ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Delivery Box -->
+                <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 24px;">📦</span>
+                            <h3 style="margin: 0; font-size: 18px;">Delivery</h3>
+                        </div>
+                        <div style="font-size: 20px; font-weight: bold; color: #dc3545;" id="totalDeliveryBox">-£0.00</div>
+                    </div>
+                    <div style="font-size: 13px; color: #666; line-height: 1.8;">
+                        <div style="display: flex; justify-content: space-between; padding: 8px 0;">
+                            <span>Postage Labels</span>
+                            <span style="font-weight: 500;" id="deliveryPostage">-£0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Summary Metrics -->
+            <div class="analytics-container" style="margin-top: 20px;">
+                <div class="metric-card profit">
+                    <div class="metric-label">Supplier Costs</div>
+                    <div class="metric-value" id="totalSupplierCosts">£0.00</div>
                 </div>
                 <div class="metric-card profit">
                     <div class="metric-label">Gross Profit</div>
                     <div class="metric-value" id="grossProfit">£0.00</div>
+                </div>
+                <div class="metric-card profit">
+                    <div class="metric-label">Net Profit</div>
+                    <div class="metric-value" id="netProfitBox">£0.00</div>
                 </div>
                 <div class="metric-card tax">
                     <div class="metric-label">Estimated Tax</div>
@@ -558,13 +715,14 @@
                                 <th>Product</th>
                                 <th>Qty</th>
                                 <th>Sale Price</th>
+                                <th>Tax</th>
                                 <th>Cost</th>
                                 <th>Profit</th>
                                 <th>Status</th>
                             </tr>
                         </thead>
                         <tbody id="salesTable">
-                            <tr><td colspan="7" class="loading">Loading sales...</td></tr>
+                            <tr><td colspan="8" class="loading">Loading sales...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -581,13 +739,14 @@
                                 <th>Product Name</th>
                                 <th>Units</th>
                                 <th>Revenue</th>
-                                <th>Cost</th>
+                                <th>Supplier Cost</th>
+                                <th>Fees</th>
                                 <th>Profit</th>
                                 <th>Margin %</th>
                             </tr>
                         </thead>
                         <tbody id="profitTable">
-                            <tr><td colspan="7" class="loading">Loading profitability...</td></tr>
+                            <tr><td colspan="8" class="loading">Loading profitability...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -758,50 +917,6 @@
             }
         }
 
-        async function clearSalesData() {
-            if (!confirm('⚠️ Are you sure you want to clear ALL sales data? This cannot be undone!')) {
-                return;
-            }
-
-            if (!confirm('🚨 FINAL WARNING: This will permanently delete all sales records. Continue?')) {
-                return;
-            }
-
-            const btn = document.getElementById('clearBtn');
-            const statusDiv = document.getElementById('syncStatus');
-            
-            btn.disabled = true;
-            btn.innerHTML = '⏳ Clearing...';
-            statusDiv.style.display = 'block';
-            statusDiv.className = 'loading';
-            statusDiv.innerHTML = 'Clearing all sales data...';
-            
-            try {
-                const response = await fetch('/api/sales/clear', {
-                    method: 'DELETE'
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    statusDiv.className = 'success';
-                    statusDiv.innerHTML = '✅ All sales data cleared successfully';
-                    
-                    setTimeout(() => {
-                        location.reload();
-                    }, 1500);
-                } else {
-                    statusDiv.className = 'error';
-                    statusDiv.innerHTML = '❌ Failed to clear data';
-                }
-            } catch (error) {
-                statusDiv.className = 'error';
-                statusDiv.innerHTML = `❌ Error: ${error.message}`;
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '🗑️ Clear All';
-            }
-        }
     </script>
 </body>
 </html>

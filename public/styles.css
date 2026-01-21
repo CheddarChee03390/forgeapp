@@ -620,6 +620,34 @@ body {
     overflow: auto;
 }
 
+/* Debug page helpers */
+.receipt-grid {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.75rem;
+    align-items: flex-end;
+}
+
+.narrow-field {
+    max-width: 320px;
+}
+
+.tight-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.spaced-block {
+    margin-top: 1rem;
+}
+
+.muted-list {
+    margin-top: 0.75rem;
+    margin-left: 1rem;
+    color: var(--text-muted);
+    list-style: disc;
+}
 .modal-content {
     background: var(--surface);
     margin: 5% auto;

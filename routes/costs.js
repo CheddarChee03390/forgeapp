@@ -2,8 +2,12 @@
 import express from 'express';
 import costHistoryService from '../services/costHistoryService.js';
 import { asyncHandler, ValidationError, NotFoundError } from '../middleware/errorHandler.js';
+import supplierCostsRoutes from './supplier-costs.js';
 
 const router = express.Router();
+
+// Mount supplier costs routes at /api/costs/supplier
+router.use('/supplier', supplierCostsRoutes);
 
 /**
  * GET /api/costs/current

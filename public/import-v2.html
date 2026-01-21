@@ -86,7 +86,7 @@
                 <a href="/" class="nav-link">Dashboard</a>
                 <a href="/materials.html" class="nav-link">Materials</a>
                 <a href="/products.html" class="nav-link">Master Stock</a>
-                <a href="/import.html" class="nav-link active">Import</a>
+                <a href="/import-v2.html" class="nav-link active">Import</a>
             </div>
         </div>
     </nav>
@@ -103,10 +103,12 @@
                     <select id="importType" class="form-control">
                         <option value="products">Master Stock (Products)</option>
                         <option value="materials">Materials</option>
+                        <option value="sku-mapping">Etsy SKU Mapping</option>
+                        <option value="etsy-statement">Etsy Statement (Fees & Refunds)</option>
                     </select>
                 </div>
                 
-                <div class="form-group">
+                <div class="form-group" id="importModeGroup">
                     <label for="importMode">Import Mode:</label>
                     <select id="importMode" class="form-control">
                         <option value="add">Add New Only</option>
@@ -122,10 +124,17 @@
 
             <!-- Step 2: File Upload -->
             <h3>Step 2: Upload CSV File</h3>
-            <div class="file-upload">
+            <div class="file-upload" id="csvUploadSection">
                 <input type="file" id="csvFile" accept=".csv" />
                 <label for="csvFile" class="btn btn-primary">Choose CSV File</label>
                 <span id="fileName" class="file-name">No file selected</span>
+            </div>
+
+            <div id="statementMonthSection" style="display: none; margin-top: 1rem;">
+                <div class="form-group">
+                    <label for="statementMonth">Statement Month <small>(Optional - auto-detects from CSV)</small></label>
+                    <input type="month" id="statementMonth" class="form-control" />
+                </div>
             </div>
         </div>
 
@@ -150,6 +159,7 @@
             <div class="table-controls">
                 <button id="simulateBtn" class="btn btn-secondary">🔍 Simulate Import</button>
                 <button id="executeBtn" class="btn btn-success" disabled>✅ Execute Import</button>
+                <button id="bulkExecuteBtn" class="btn btn-warning" style="display: none;" disabled>📦 Bulk Import All Months</button>
             </div>
 
             <div id="simulationResults" style="margin-top: 2rem;"></div>

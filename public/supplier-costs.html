@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supplier Costs</title>
+    <link rel="stylesheet" href="/styles.css">
+    <style>
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.9;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .btn-add {
+            background: #10b981;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        .btn-add:hover {
+            background: #059669;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .close {
+            font-size: 28px;
+            font-weight: bold;
+            color: #999;
+            cursor: pointer;
+        }
+        .close:hover {
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .btn-save {
+            background: #3b82f6;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 14px;
+        }
+        .btn-save:hover {
+            background: #2563eb;
+        }
+        .btn-history {
+            background: #6366f1;
+            color: white;
+            padding: 5px 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .btn-history:hover {
+            background: #4f46e5;
+        }
+        .history-list {
+            margin-top: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .history-item {
+            background: #f9fafb;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 5px;
+            border-left: 3px solid #3b82f6;
+        }
+        .history-item.current {
+            border-left-color: #10b981;
+            background: #ecfdf5;
+        }
+        .history-date {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .history-cost {
+            font-size: 16px;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+        .history-notes {
+            font-size: 13px;
+            color: #4b5563;
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-brand">Forge App</div>
+        <div class="nav-links">
+            <a href="/">Home</a>
+            <a href="/materials.html">Materials</a>
+            <a href="/products.html">Products</a>
+            <a href="/pricing.html">Pricing</a>
+            <a href="/etsy.html">Etsy</a>
+            <a href="/sales-analytics.html">Sales</a>
+            <a href="/supplier-costs.html" class="active">Supplier Costs</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="header">
+            <h1>💰 Supplier Costs</h1>
+            <p class="subtitle">Manage SKU-based supplier pricing catalog</p>
+        </div>
+
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-label">SKUs with Costs</div>
+                <div class="stat-value" id="totalSkus">-</div>
+            </div>
+            <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <div class="stat-label">Average Cost</div>
+                <div class="stat-value" id="avgCost">-</div>
+            </div>
+            <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                <div class="stat-label">Cost Range</div>
+                <div class="stat-value" id="costRange">-</div>
+            </div>
+        </div>
+
+        <button class="btn-add" onclick="showAddModal()">➕ Add Supplier Cost</button>
+
+        <div class="card">
+            <div class="card-header">
+                <h2>Current Supplier Costs</h2>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>SKU</th>
+                        <th>Supplier</th>
+                        <th>Cost per Unit</th>
+                        <th>Effective Date</th>
+                        <th>Notes</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="costsTable">
+                    <tr><td colspan="6" class="loading">Loading supplier costs...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Add/Edit Modal -->
+    <div id="costModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Add Supplier Cost</h2>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <form id="costForm">
+                <div class="form-group">
+                    <label for="sku">SKU *</label>
+                    <input type="text" id="sku" required>
+                </div>
+                <div class="form-group">
+                    <label for="cost">Cost per Unit (£) *</label>
+                    <input type="number" id="cost" step="0.01" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label for="supplier">Supplier Name</label>
+                    <input type="text" id="supplier">
+                </div>
+                <div class="form-group">
+                    <label for="effectiveDate">Effective Date</label>
+                    <input type="date" id="effectiveDate">
+                </div>
+                <div class="form-group">
+                    <label for="notes">Notes</label>
+                    <textarea id="notes" rows="3"></textarea>
+                </div>
+                <button type="submit" class="btn-save">Save Cost</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- History Modal -->
+    <div id="historyModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Cost History: <span id="historySku"></span></h2>
+                <span class="close" onclick="closeHistoryModal()">&times;</span>
+            </div>
+            <div class="history-list" id="historyList">
+                <div class="loading">Loading history...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allCosts = [];
+
+        async function loadStats() {
+            try {
+                const res = await fetch('/api/costs/supplier/stats');
+                const data = await res.json();
+                if (data.success && data.stats) {
+                    document.getElementById('totalSkus').textContent = data.stats.total_skus_with_costs || 0;
+                    document.getElementById('avgCost').textContent = data.stats.average_cost 
+                        ? `£${parseFloat(data.stats.average_cost).toFixed(2)}` 
+                        : '£0.00';
+                    document.getElementById('costRange').textContent = 
+                        `£${data.stats.min_cost || 0} - £${data.stats.max_cost || 0}`;
+                }
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        async function loadCosts() {
+            try {
+                const res = await fetch('/api/costs/supplier');
+                const data = await res.json();
+                if (data.success) {
+                    allCosts = data.costs;
+                    renderCosts();
+                }
+            } catch (error) {
+                console.error('Error loading costs:', error);
+                document.getElementById('costsTable').innerHTML = 
+                    '<tr><td colspan="6" class="error">Failed to load costs</td></tr>';
+            }
+        }
+
+        function renderCosts() {
+            const tbody = document.getElementById('costsTable');
+            if (allCosts.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 20px;">No supplier costs defined. Click "Add Supplier Cost" to begin.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = allCosts.map(cost => `
+                <tr>
+                    <td><strong>${cost.sku}</strong></td>
+                    <td>${cost.supplier_name || '-'}</td>
+                    <td><strong>£${parseFloat(cost.cost_per_unit).toFixed(2)}</strong></td>
+                    <td>${new Date(cost.effective_date).toLocaleDateString()}</td>
+                    <td>${cost.notes || '-'}</td>
+                    <td>
+                        <button class="btn-history" onclick="showHistory('${cost.sku}')">📜 History</button>
+                        <button class="btn-history" style="background: #f59e0b;" onclick="editCost('${cost.sku}')">✏️ Update</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function showAddModal() {
+            document.getElementById('modalTitle').textContent = 'Add Supplier Cost';
+            document.getElementById('costForm').reset();
+            document.getElementById('sku').readOnly = false;
+            document.getElementById('costModal').style.display = 'block';
+        }
+
+        function editCost(sku) {
+            const cost = allCosts.find(c => c.sku === sku);
+            if (!cost) return;
+
+            document.getElementById('modalTitle').textContent = 'Update Supplier Cost';
+            document.getElementById('sku').value = cost.sku;
+            document.getElementById('sku').readOnly = true;
+            document.getElementById('cost').value = cost.cost_per_unit;
+            document.getElementById('supplier').value = cost.supplier_name || '';
+            document.getElementById('notes').value = '';
+            document.getElementById('costModal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('costModal').style.display = 'none';
+        }
+
+        async function showHistory(sku) {
+            document.getElementById('historySku').textContent = sku;
+            document.getElementById('historyModal').style.display = 'block';
+            document.getElementById('historyList').innerHTML = '<div class="loading">Loading history...</div>';
+
+            try {
+                const res = await fetch(`/api/costs/supplier/${encodeURIComponent(sku)}/history`);
+                const data = await res.json();
+                if (data.success && data.history) {
+                    renderHistory(data.history);
+                }
+            } catch (error) {
+                console.error('Error loading history:', error);
+                document.getElementById('historyList').innerHTML = '<div class="error">Failed to load history</div>';
+            }
+        }
+
+        function renderHistory(history) {
+            const container = document.getElementById('historyList');
+            if (history.length === 0) {
+                container.innerHTML = '<div style="text-align:center; padding: 20px;">No history available</div>';
+                return;
+            }
+
+            container.innerHTML = history.map(h => `
+                <div class="history-item ${h.is_current ? 'current' : ''}">
+                    <div class="history-date">
+                        ${new Date(h.effective_date).toLocaleDateString()} 
+                        ${h.is_current ? '• <strong>CURRENT</strong>' : ''}
+                    </div>
+                    <div class="history-cost">£${parseFloat(h.cost_per_unit).toFixed(2)}</div>
+                    ${h.supplier_name ? `<div><strong>Supplier:</strong> ${h.supplier_name}</div>` : ''}
+                    ${h.notes ? `<div class="history-notes">${h.notes}</div>` : ''}
+                </div>
+            `).join('');
+        }
+
+        function closeHistoryModal() {
+            document.getElementById('historyModal').style.display = 'none';
+        }
+
+        document.getElementById('costForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const sku = document.getElementById('sku').value.trim();
+            const cost = parseFloat(document.getElementById('cost').value);
+            const supplier = document.getElementById('supplier').value.trim();
+            const effectiveDate = document.getElementById('effectiveDate').value || new Date().toISOString().split('T')[0];
+            const notes = document.getElementById('notes').value.trim();
+
+            try {
+                const res = await fetch('/api/costs/supplier', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sku,
+                        cost_per_unit: cost,
+                        supplier_name: supplier || null,
+                        effective_date: effectiveDate,
+                        notes: notes || null
+                    })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    alert('✅ Supplier cost saved successfully!');
+                    closeModal();
+                    await loadStats();
+                    await loadCosts();
+                } else {
+                    alert('❌ Error: ' + (data.message || 'Failed to save'));
+                }
+            } catch (error) {
+                console.error('Error saving cost:', error);
+                alert('❌ Network error');
+            }
+        });
+
+        // Close modals on outside click
+        window.onclick = function(event) {
+            const costModal = document.getElementById('costModal');
+            const historyModal = document.getElementById('historyModal');
+            if (event.target === costModal) {
+                closeModal();
+            } else if (event.target === historyModal) {
+                closeHistoryModal();
+            }
+        }
+
+        // Load data on page load
+        loadStats();
+        loadCosts();
+    </script>
+</body>
+</html>

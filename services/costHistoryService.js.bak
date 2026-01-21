@@ -33,18 +33,7 @@ class CostHistoryService {
                 ORDER BY effective_date DESC
                 LIMIT 1
             `);
-            const record = stmt.get(materialId, date);
-            if (record) return record;
-
-            // Fallback: if no cost existed yet on that date, return earliest cost
-            const earliest = db.prepare(`
-                SELECT cost, effective_date 
-                FROM Material_Costs 
-                WHERE material_id = ?
-                ORDER BY effective_date ASC
-                LIMIT 1
-            `).get(materialId);
-            return earliest || null;
+            return stmt.get(materialId, date);
         } catch (error) {
             console.error(`❌ Error getting cost at date for ${materialId}:`, error);
             return null;
@@ -86,57 +75,57 @@ class CostHistoryService {
         } catch (error) {
             console.error(`❌ Error updating cost for ${materialId}:`, error);
             return { success: false, error: error.message };
-        }
-    }
 
-    /**
-     * Add a historical cost record with specific effective date
-     * Used for importing historical data
-     */
-    addCostRecord(materialId, cost, effectiveDate, reason = 'Historical import') {
-        try {
-            const transaction = db.transaction(() => {
-                // Check if this will be the most recent cost
-                const latestCost = db.prepare(`
-                    SELECT effective_date 
-                    FROM Material_Costs 
-                    WHERE material_id = ?
-                    ORDER BY effective_date DESC
-                    LIMIT 1
-                `).get(materialId);
+            /**
+             * Add a historical cost record with specific effective date
+             * Used for importing historical data
+             */
+            addCostRecord(materialId, cost, effectiveDate, reason = 'Historical import') {
+                try {
+                    const transaction = db.transaction(() => {
+                        // Check if this will be the most recent cost
+                        const latestCost = db.prepare(`
+                            SELECT effective_date 
+                            FROM Material_Costs 
+                            WHERE material_id = ?
+                            ORDER BY effective_date DESC
+                            LIMIT 1
+                        `).get(materialId);
 
-                const isMostRecent = !latestCost || new Date(effectiveDate) > new Date(latestCost.effective_date);
+                        const isMostRecent = !latestCost || new Date(effectiveDate) > new Date(latestCost.effective_date);
 
-                // If this is the most recent, deactivate all current costs
-                if (isMostRecent) {
-                    db.prepare(`
-                        UPDATE Material_Costs 
-                        SET is_current = 0 
-                        WHERE material_id = ? AND is_current = 1
-                    `).run(materialId);
+                        // If this is the most recent, deactivate all current costs
+                        if (isMostRecent) {
+                            db.prepare(`
+                                UPDATE Material_Costs 
+                                SET is_current = 0 
+                                WHERE material_id = ? AND is_current = 1
+                            `).run(materialId);
+                        }
+
+                        // Insert the new cost record
+                        const insert = db.prepare(`
+                            INSERT INTO Material_Costs 
+                            (material_id, cost, effective_date, is_current, changed_reason)
+                            VALUES (?, ?, ?, ?, ?)
+                        `);
+                        insert.run(materialId, cost, effectiveDate, isMostRecent ? 1 : 0, reason);
+
+                        return {
+                            success: true,
+                            materialId,
+                            cost,
+                            effectiveDate,
+                            isCurrent: isMostRecent
+                        };
+                    });
+
+                    return transaction();
+                } catch (error) {
+                    console.error(`❌ Error adding cost record for ${materialId}:`, error);
+                    return { success: false, error: error.message };
                 }
-
-                // Insert the new cost record
-                const insert = db.prepare(`
-                    INSERT INTO Material_Costs 
-                    (material_id, cost, effective_date, is_current, changed_reason)
-                    VALUES (?, ?, ?, ?, ?)
-                `);
-                insert.run(materialId, cost, effectiveDate, isMostRecent ? 1 : 0, reason);
-
-                return {
-                    success: true,
-                    materialId,
-                    cost,
-                    effectiveDate,
-                    isCurrent: isMostRecent
-                };
-            });
-
-            return transaction();
-        } catch (error) {
-            console.error(`❌ Error adding cost record for ${materialId}:`, error);
-            return { success: false, error: error.message };
+            }
         }
     }
 

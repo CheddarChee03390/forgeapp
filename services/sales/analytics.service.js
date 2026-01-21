@@ -3,6 +3,7 @@
  * Pure calculation functions for sales metrics
  * No database access - operates on data passed in
  */
+import etsyFeesService from '../etsyFeesService.js';
 
 class AnalyticsService {
     /**
@@ -14,6 +15,7 @@ class AnalyticsService {
                 return {
                     total_revenue: 0,
                     total_costs: 0,
+                    total_fees: 0,
                     total_profit: 0,
                     units_sold: 0,
                     average_order_value: 0,
@@ -24,12 +26,21 @@ class AnalyticsService {
 
             const totalRevenue = sales.reduce((sum, s) => sum + s.sale_price, 0);
             const totalCosts = sales.reduce((sum, s) => sum + (s.material_cost_at_sale || 0), 0);
-            const totalProfit = totalRevenue - totalCosts;
+            
+            // Calculate total fees
+            let totalFees = 0;
+            sales.forEach(sale => {
+                const fees = etsyFeesService.getOrderFees(sale.order_id);
+                totalFees += fees;
+            });
+            
+            const totalProfit = totalRevenue - totalCosts - totalFees;
             const unitsSold = sales.reduce((sum, s) => sum + s.quantity, 0);
 
             return {
                 total_revenue: parseFloat(totalRevenue.toFixed(2)),
                 total_costs: parseFloat(totalCosts.toFixed(2)),
+                total_fees: parseFloat(totalFees.toFixed(2)),
                 total_profit: parseFloat(totalProfit.toFixed(2)),
                 units_sold: unitsSold,
                 average_order_value: parseFloat((totalRevenue / sales.length).toFixed(2)),

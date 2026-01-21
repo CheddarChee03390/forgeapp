@@ -102,7 +102,7 @@ function initializeDatabase() {
             last_synced INTEGER,
             created_at INTEGER,
             updated_at INTEGER,
-            UNIQUE(listing_id, product_id),
+            UNIQUE(listing_id, variation_sku),
             FOREIGN KEY (listing_id) REFERENCES Etsy_Inventory(listing_id) ON DELETE CASCADE
         )
     `);
@@ -117,6 +117,88 @@ function initializeDatabase() {
             is_active INTEGER DEFAULT 1,
             updated_at INTEGER,
             UNIQUE(marketplace, variation_sku)
+        )
+    `);
+
+    // Create Material_Costs table
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS Material_Costs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            material_id TEXT NOT NULL,
+            cost REAL NOT NULL,
+            effective_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+            is_current BOOLEAN DEFAULT 0,
+            changed_reason TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (material_id) REFERENCES Materials(materialId),
+            UNIQUE(material_id, effective_date)
+        )
+    `);
+
+    // Create Sales table
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS Sales (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_id TEXT UNIQUE NOT NULL,
+            etsy_order_number TEXT,
+            listing_id INTEGER,
+            sku TEXT,
+            product_name TEXT,
+            quantity INTEGER DEFAULT 1,
+            sale_price REAL NOT NULL,
+            material_cost_at_sale REAL,
+            tax_amount REAL DEFAULT 0,
+            tax_included REAL DEFAULT 0,
+            order_date DATETIME NOT NULL,
+            status TEXT DEFAULT 'pending',
+            synced_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+            notes TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (listing_id) REFERENCES Etsy_Inventory(listing_id)
+        )
+    `);
+
+    // Create Etsy_Fees table
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS Etsy_Fees (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_id TEXT,
+            fee_type TEXT NOT NULL,
+            amount REAL NOT NULL,
+            description TEXT,
+            charged_date DATETIME NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            fee_hash TEXT UNIQUE,
+            is_credit BOOLEAN DEFAULT 0,
+            FOREIGN KEY (order_id) REFERENCES Sales(order_id)
+        )
+    `);
+
+    // Track locked months for imports
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS Import_Locks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            source TEXT NOT NULL,
+            month TEXT NOT NULL,
+            locked_by TEXT,
+            locked_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            note TEXT,
+            UNIQUE(source, month)
+        )
+    `);
+
+    // Create Supplier_Costs table
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS Supplier_Costs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sku TEXT NOT NULL,
+            supplier_id TEXT,
+            unit_cost REAL NOT NULL,
+            effective_from DATE NOT NULL,
+            effective_to DATE,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            notes TEXT,
+            UNIQUE(sku, effective_from)
         )
     `);
 
@@ -190,6 +272,58 @@ function initializeDatabase() {
         }
 
         console.log('✅ Default materials created');
+    }
+    
+    // Run migrations for schema updates
+    runMigrations();
+}
+
+/**
+ * Apply schema migrations for existing databases
+ */
+function runMigrations() {
+    try {
+        // Migration: Add is_credit and fee_hash columns to Etsy_Fees if they don't exist
+        const tableInfo = db.pragma('table_info(Etsy_Fees)');
+        const hasIsCredit = tableInfo.some(col => col.name === 'is_credit');
+        const hasFeeHash = tableInfo.some(col => col.name === 'fee_hash');
+        
+        if (!hasIsCredit) {
+            console.log('📝 Migration: Adding is_credit column to Etsy_Fees...');
+            db.exec('ALTER TABLE Etsy_Fees ADD COLUMN is_credit BOOLEAN DEFAULT 0');
+            console.log('✅ is_credit column added');
+        }
+        
+        if (!hasFeeHash) {
+            console.log('📝 Migration: Adding fee_hash column to Etsy_Fees...');
+            db.exec('ALTER TABLE Etsy_Fees ADD COLUMN fee_hash TEXT UNIQUE');
+            console.log('✅ fee_hash column added');
+        }
+
+        const hasImportLocks = db.prepare(`
+            SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'Import_Locks'
+        `).get();
+
+        if (!hasImportLocks) {
+            console.log('📝 Migration: Creating Import_Locks table...');
+            db.exec(`
+                CREATE TABLE IF NOT EXISTS Import_Locks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    source TEXT NOT NULL,
+                    month TEXT NOT NULL,
+                    locked_by TEXT,
+                    locked_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    note TEXT,
+                    UNIQUE(source, month)
+                )
+            `);
+            console.log('✅ Import_Locks table created');
+        }
+    } catch (error) {
+        // Columns might already exist, that's fine
+        if (!error.message.includes('already exists')) {
+            console.warn('⚠️ Migration warning:', error.message);
+        }
     }
 }
 
